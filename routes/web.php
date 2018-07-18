@@ -14,6 +14,9 @@
 // Route::get('/', function () {
 //     return view('welcome');
 // });
-Route::get('/','StaticPagesController@home');
-Route::get('/about','StaticPagesController@about');
-Route::get('/help','StaticPagesController@help');
+Route::get('/','StaticPagesController@home')->name('home');
+Route::get('/about','StaticPagesController@about')->name('about');
+Route::get('/help','StaticPagesController@help')->name('help');
+
+//注册路由
+Route::get('signup','UsersController@create')->name('signup');
