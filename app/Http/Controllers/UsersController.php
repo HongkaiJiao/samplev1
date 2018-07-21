@@ -34,6 +34,8 @@ class UsersController extends Controller
             'email' => $request->email,
             'password' => bcrypt($request->password),
         ]);
+        // 完成注册后自动登录--即将一个已存在的用户实例直接登录到应用
+        Auth::login($user);
         // 欢迎信息入会话闪存
         session()->flash('success','欢迎开启你的laravel5之旅~');
         // 重定向到个人信息页面
