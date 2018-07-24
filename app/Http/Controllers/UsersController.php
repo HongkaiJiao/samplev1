@@ -7,6 +7,25 @@ use Illuminate\Http\Request;
 
 class UsersController extends Controller
 {
+    public function __construct()
+    {
+        // 使用Auth中间件过滤--指定除以下动作外其他动作必须经过登录才能访问
+        $this->middleware('auth',[
+            'except' => ['create','show','store','index']
+        ]);
+        // 只允许未登录用户访问登录页面
+        $this->middleware('guest',[
+            'only' => ['create'],
+        ]);
+    }
+
+    // 显示用户列表
+    public function index()
+    {
+        $users = User::paginate(10);
+        return view('users.index',compact('users'));
+    }
+
     // 显示注册页面
     public function create()
     {
@@ -40,5 +59,49 @@ class UsersController extends Controller
         session()->flash('success','欢迎开启你的laravel5之旅~');
         // 重定向到个人信息页面
         return redirect()->route('users.show',[$user]);
+    }
+
+    // 显示编辑页面
+    public function edit(User $user)
+    {
+        /**
+         * 对 $user 用户进行授权验证;此处参数 update 是指授权类里的 update 授权方法，$user 对应传参 update 授权方法的第二个参数，
+         * 默认情况下，无需为 update 授权方法传递第一个参数，即当前登录用户至该方法内，因为框架会自动加载当前登录用户。
+         */
+        $this->authorize('update',$user);
+        return view('users.edit',compact('user'));
+    }
+
+    // 编辑功能
+    public function update(User $user,Request $request)
+    {
+        // nullable 可以为空
+        $this->validate($request,[
+            'name' => 'required|min:6|max:50',
+            'password' => 'nullable|confirmed|min:6'
+        ]);
+
+        $this->authorize('update',$user);
+
+        // 更新用户对象
+        $data['name'] = $request->name;
+        if ($request->password) {
+            $data['password'] = bcrypt($request->password);
+        }
+        $user->update($data);
+        session()->flash('success','个人资料更新成功！');
+        return redirect()->route('users.show',$user->id);
+    }
+
+    // 删除用户功能
+    public function destroy(User $user)
+    {
+        // 对用户进行授权验证
+        if($this->authorize('destroy',$user)){
+            $user->delete();
+            session()->flash('success','成功删除用户！');
+        }
+
+        return back();
     }
 }

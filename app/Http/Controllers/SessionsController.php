@@ -7,6 +7,14 @@ use Auth;
 
 class SessionsController extends Controller
 {
+    public function __construct()
+    {
+        // 只允许未登录用户访问登录页面
+        $this->middleware('guest',[
+            'only' => ['create'],
+        ]);
+    }
+
     // 显示登录页面
     public function create()
     {
@@ -22,10 +30,11 @@ class SessionsController extends Controller
             'password' =>'required'
         ]);
         // Auth 门面的 attempt 方法用于对用户身份进行认证
-        if (Auth::attempt($credentials)) {
+        if (Auth::attempt($credentials,$request->has('remember'))) {
             session()->flash('success','欢迎回来');
             // Auth 门面的 user 方法用于获取当前认证用户
-            return redirect()->route('users.show',[Auth::user()]);
+            // redirect() 实例的 intended 方法可将页面重定向到上一次请求尝试访问的页面上，并接收一个默认跳转地址参数
+            return redirect()->intended(route('users.show',[Auth::user()]));
         } else {
             session()->flash('danger','很抱歉，您的邮箱和密码不匹配');
             // 重定向至上一页面时回带email信息
