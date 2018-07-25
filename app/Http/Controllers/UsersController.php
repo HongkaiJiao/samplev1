@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Mail;
+use Auth;
+
 
 class UsersController extends Controller
 {
@@ -11,7 +14,7 @@ class UsersController extends Controller
     {
         // 使用Auth中间件过滤--指定除以下动作外其他动作必须经过登录才能访问
         $this->middleware('auth',[
-            'except' => ['create','show','store','index']
+            'except' => ['create','show','store','index','confirmEmail']
         ]);
         // 只允许未登录用户访问登录页面
         $this->middleware('guest',[
@@ -45,7 +48,7 @@ class UsersController extends Controller
         $this->validate($request,[
             'name' => 'required|min:6|max:30',
             'email' => 'required|email|unique:users|max:255',
-            'password' => 'required|confirmed'
+            'password' => 'required|confirmed|min:6'
         ]);
         // 请求过来的数据存入数据库
         $user = User::create([
@@ -53,12 +56,21 @@ class UsersController extends Controller
             'email' => $request->email,
             'password' => bcrypt($request->password),
         ]);
+        /**
+         * (before)
+         *
         // 完成注册后自动登录--即将一个已存在的用户实例直接登录到应用
         Auth::login($user);
         // 欢迎信息入会话闪存
         session()->flash('success','欢迎开启你的laravel5之旅~');
         // 重定向到个人信息页面
         return redirect()->route('users.show',[$user]);
+         */
+
+        // (after)
+        $this->sendEmailConfirmationTo($user);
+        session()->flash('success','验证邮件已发送到你的注册邮箱上，请注意查收。');
+        return redirect('/');
     }
 
     // 显示编辑页面
@@ -103,5 +115,45 @@ class UsersController extends Controller
         }
 
         return back();
+    }
+
+    // 发送邮件至指定用户
+    protected function sendEmailConfirmationTo($user)
+    {
+        // 定义包含邮件消息的视图名称
+        $view = 'emails.confirm';
+        // 定义邮件消息视图的待传参数据数组
+        $data = compact('user');
+        // 邮件消息的发送方
+        //$from = '273912572@qq.com';
+        // 发送方名称
+        //$name = 'KevinJiao';
+        // 邮件消息的接收方
+        $to = $user->email;
+        // 邮件消息的主题
+        $subject = "感谢注册 Sample 应用！请确认你的邮箱。";
+
+        // 使用 Mail 接口的 send 方法进行邮件发送
+        Mail::send($view,$data,function($message) use($to,$subject) {
+            $message->to($to)->subject($subject);
+        });
+    }
+
+    // 邮件激活功能
+    public function confirmEmail($token)
+    {
+        // firstOrFail 方法取出第一个满足条件的用户，若查询不到指定用户时将返回一个 404 响应
+        $user = User::where('activation_token',$token)->firstOrFail();
+        // 更新该用户相应信息
+        $user->activated = true;
+        $user->activation_token = null;
+        $user->save();
+
+        // 完成激活后自动登录--即将一个已存在的用户实例直接登录到应用
+        Auth::login($user);
+        // 提示信息入会话闪存
+        session()->flash('success','恭喜你，激活成功！开启你的laravel5之旅吧~');
+        // 重定向到个人信息页面
+        return redirect()->route('users.show',[$user]);
     }
 }
