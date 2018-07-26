@@ -38,7 +38,9 @@ class UsersController extends Controller
     // 显示用户个人信息页面
     public function show(User $user)
     {
-        return view('users.show',compact('user'));
+        // 分页读取该用户的所有微博
+        $statuses = $user->statuses()->orderBy('created_at','desc')->paginate(30);
+        return view('users.show',compact('user','statuses'));
     }
 
     // 注册功能
