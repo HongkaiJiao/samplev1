@@ -47,6 +47,7 @@ class User extends Authenticatable
         return "http://www.gravatar.com/avatar/$hash?s=$size";
     }
 
+    // 修改用于向用户发送密码重置链接的通知类--自定义用于重置的邮件
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new ResetPassword($token));
@@ -55,12 +56,58 @@ class User extends Authenticatable
     // 定义一对多关联
     public function statuses()
     {
+        // hasMany('App\要引入的实体类名','另一表中的外键','本表中的主键')
+        // Eloquent 假定 Status 模型对应到 User 模型上的那个外键字段是 user_id
         return $this->hasMany(Status::class);
     }
 
     // 从DB中取出当前用户发布过的所有微博
     public function feed()
     {
-        return $this->statuses()->orderBy('created_at','desc');
+        //return $this->statuses()->orderBy('created_at','desc');
+
+        $user_ids = Auth::user()->followings->plunk('id')->toArray();
+        array_push($user_ids,Auth::user()->id);
+        return Status::whereIn('user_id',$user_ids)->with('user')->orderBy('created_at','desc');
+    }
+
+    // 获取粉丝关系列表--多对多关联
+    public function followers()
+    {
+        // eg: belongsToMany(User::class,'followers','user_id','follower_id');
+        //     belongsToMany(粉丝表,中间表,当前model在中间表中的字段,目标model在中间表中的字段)
+        return $this->belongsToMany(User::class,'followers','user_id','follower_id');
+    }
+
+    // 获取用户关注人列表
+    public function followings()
+    {
+        return $this->belongsToMany(User::class,'followers','follower_id','user_id');
+    }
+
+    // 关注操作
+    public function follow($user_ids)
+    {
+        if (!is_array($user_ids)) { // 参数不为数组时转换为数组
+            $user_ids = compact('user_ids');
+        }
+        // sync 方法在中间表上创建一个多对多记录
+        $this->followings()->sync($user_ids,false);
+    }
+
+    // 取关操作
+    public function unfollow($user_ids)
+    {
+        if (!is_array($user_ids)) {
+            $user_ids = compact('user_ids');
+        }
+        // detach 方法在中间表上移除一个记录
+        $this->followings()->detach($user_ids);
+    }
+
+    // 判断当前用户是否关注了目标用户
+    public function isFollowing($user_id)
+    {
+        return $this->followings->contains($user_id);
     }
 }
